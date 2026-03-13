@@ -14,7 +14,7 @@ impl HomeView {
         // In unified mode, all instances are loaded, so use them for title dedup.
         // For the target profile, filter to that profile's instances.
         let existing_titles: Vec<&str> = self
-            .instances
+            .instances()
             .iter()
             .filter(|i| i.source_profile == target_profile)
             .map(|i| i.title.as_str())
@@ -46,7 +46,7 @@ impl HomeView {
                 .insert(target_profile.clone(), Storage::new(&target_profile)?);
         }
 
-        self.instances.push(instance.clone());
+        self.add_instance(instance.clone());
         self.rebuild_group_trees();
         if !instance.group_path.is_empty() {
             if let Some(tree) = self.group_trees.get_mut(&target_profile) {
@@ -84,16 +84,19 @@ impl HomeView {
         if let Some(group_path) = self.selected_group.take() {
             let owning_profile = self.selected_group_profile.take();
             let prefix = format!("{}/", group_path);
-
-            // Only ungroup instances belonging to the owning profile
-            for inst in &mut self.instances {
-                if (inst.group_path == group_path || inst.group_path.starts_with(&prefix))
-                    && owning_profile
-                        .as_ref()
-                        .map_or(true, |p| p == &inst.source_profile)
-                {
-                    inst.group_path = String::new();
-                }
+            let ids_to_clear: Vec<String> = self
+                .instances
+                .iter()
+                .filter(|i| {
+                    (i.group_path == group_path || i.group_path.starts_with(&prefix))
+                        && owning_profile
+                            .as_ref()
+                            .map_or(true, |p| p == &i.source_profile)
+                })
+                .map(|i| i.id.clone())
+                .collect();
+            for id in &ids_to_clear {
+                self.mutate_instance(id, |inst| inst.group_path = String::new());
             }
 
             self.rebuild_group_trees();
@@ -123,7 +126,7 @@ impl HomeView {
             let prefix = format!("{}/", group_path);
 
             let sessions_to_delete: Vec<String> = self
-                .instances
+                .instances()
                 .iter()
                 .filter(|i| {
                     (i.group_path == group_path || i.group_path.starts_with(&prefix))
@@ -181,14 +184,14 @@ impl HomeView {
     }
 
     pub(super) fn group_has_managed_worktrees(&self, group_path: &str, prefix: &str) -> bool {
-        self.instances.iter().any(|i| {
+        self.instances().iter().any(|i| {
             (i.group_path == group_path || i.group_path.starts_with(prefix))
                 && i.worktree_info.as_ref().is_some_and(|wt| wt.managed_by_aoe)
         })
     }
 
     pub(super) fn group_has_containers(&self, group_path: &str, prefix: &str) -> bool {
-        self.instances.iter().any(|i| {
+        self.instances().iter().any(|i| {
             (i.group_path == group_path || i.group_path.starts_with(prefix))
                 && i.sandbox_info.as_ref().is_some_and(|s| s.enabled)
         })
@@ -241,7 +244,7 @@ impl HomeView {
 
                     // Get the instance to move
                     let mut instance = self
-                        .instances
+                        .instances()
                         .iter()
                         .find(|i| i.id == id)
                         .cloned()
@@ -300,21 +303,16 @@ impl HomeView {
                 }
             }
 
-            // No profile change - update in place
             // Rename tmux session BEFORE mutating the instance, so we can
             // look up the session by its current (old) name.
-            let old_title = self.get_instance(&id).map(|i| i.title.clone());
-            if let Some(ref old_t) = old_title {
-                if *old_t != effective_title {
-                    let old_tmux_session = crate::tmux::Session::new(&id, old_t)?;
-                    if old_tmux_session.exists() {
-                        let new_tmux_name =
-                            crate::tmux::Session::generate_name(&id, &effective_title);
-                        if let Err(e) = old_tmux_session.rename(&new_tmux_name) {
-                            tracing::warn!("Failed to rename tmux session: {}", e);
-                        } else {
-                            crate::tmux::refresh_session_cache();
-                        }
+            if current_title != effective_title {
+                let old_tmux_session = crate::tmux::Session::new(&id, &current_title)?;
+                if old_tmux_session.exists() {
+                    let new_tmux_name = crate::tmux::Session::generate_name(&id, &effective_title);
+                    if let Err(e) = old_tmux_session.rename(&new_tmux_name) {
+                        tracing::warn!("Failed to rename tmux session: {}", e);
+                    } else {
+                        crate::tmux::refresh_session_cache();
                     }
                 }
             }

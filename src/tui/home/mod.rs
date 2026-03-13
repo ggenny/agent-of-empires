@@ -97,8 +97,8 @@ pub struct HomeView {
     pub(super) storages: HashMap<String, Storage>,
     pub(super) active_profile: Option<String>,
     pub(super) collapsed_profiles: HashSet<String>,
-    pub(super) instances: Vec<Instance>,
-    pub(super) instance_map: HashMap<String, Instance>,
+    instances: Vec<Instance>,
+    instance_map: HashMap<String, Instance>,
     pub(super) group_trees: HashMap<String, GroupTree>,
     pub(super) flat_items: Vec<Item>,
 
@@ -413,8 +413,7 @@ impl HomeView {
 
         if let Some(result) = self.deletion_poller.try_recv_result() {
             if result.success {
-                self.instances.retain(|i| i.id != result.session_id);
-                self.instance_map.remove(&result.session_id);
+                self.remove_instance(&result.session_id);
                 self.rebuild_group_trees();
 
                 if let Err(e) = self.save() {
@@ -513,7 +512,7 @@ impl HomeView {
                     }
                 }
 
-                self.instances.push(instance.clone());
+                self.add_instance(instance.clone());
                 self.rebuild_group_trees();
                 if !instance.group_path.is_empty() {
                     if let Some(tree) = self.group_trees.get_mut(&target_profile) {
@@ -616,6 +615,10 @@ impl HomeView {
 
     pub fn show_changelog(&mut self, from_version: Option<String>) {
         self.changelog_dialog = Some(ChangelogDialog::new(from_version));
+    }
+
+    pub fn instances(&self) -> &[Instance] {
+        &self.instances
     }
 
     pub fn get_instance(&self, id: &str) -> Option<&Instance> {
@@ -784,6 +787,21 @@ impl HomeView {
         self.group_trees
             .values()
             .any(|t| !t.get_all_groups().is_empty())
+    }
+
+    /// Centralized instance addition: adds to both the `instances` vec
+    /// and `instance_map` to keep both collections in sync.
+    pub(super) fn add_instance(&mut self, instance: Instance) {
+        self.instance_map
+            .insert(instance.id.clone(), instance.clone());
+        self.instances.push(instance);
+    }
+
+    /// Centralized instance removal: removes from both the `instances` vec
+    /// and `instance_map` to keep both collections in sync.
+    pub(super) fn remove_instance(&mut self, id: &str) {
+        self.instances.retain(|i| i.id != id);
+        self.instance_map.remove(id);
     }
 
     /// Centralized instance mutation: applies `f` once to the `instances` vec
