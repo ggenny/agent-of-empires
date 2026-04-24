@@ -246,13 +246,6 @@ pub async fn browse_filesystem(
             return Err("Path is not a directory");
         }
 
-        // Security: restrict browsing to the user's home directory
-        if let Some(home) = dirs::home_dir() {
-            if !canonical.starts_with(&home) {
-                return Err("Path is outside the home directory");
-            }
-        }
-
         let mut entries: Vec<DirEntry> = Vec::new();
         let read_dir = std::fs::read_dir(&canonical).map_err(|_| "Cannot read directory")?;
 
