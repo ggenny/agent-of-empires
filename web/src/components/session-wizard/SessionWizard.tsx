@@ -189,7 +189,7 @@ export function SessionWizard({ onClose, onCreated, prefill }: Props) {
       create_new_branch: true,
       sandbox: d.sandboxEnabled,
       sandbox_image: d.sandboxEnabled ? d.sandboxImage : undefined,
-      extra_env: d.sandboxEnabled && d.extraEnv.length > 0 ? d.extraEnv.filter(Boolean) : undefined,
+      extra_env: d.extraEnv.length > 0 ? d.extraEnv.filter(Boolean) : undefined,
       extra_args: d.extraArgs || undefined,
       command_override: d.commandOverride || undefined,
       custom_instruction: d.customInstruction || undefined,

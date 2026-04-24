@@ -121,6 +121,11 @@ pub struct Instance {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sandbox_info: Option<SandboxInfo>,
 
+    /// Per-session environment variables for non-sandboxed sessions.
+    /// Each entry is `KEY=value` or `KEY` (inherit from host).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra_env: Option<Vec<String>>,
+
     // Paired terminal session
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal_info: Option<TerminalInfo>,
@@ -170,6 +175,7 @@ impl Instance {
             worktree_info: None,
             workspace_info: None,
             sandbox_info: None,
+            extra_env: None,
             terminal_info: None,
             source_profile: String::new(),
             notify_on_waiting: None,
@@ -531,11 +537,21 @@ impl Instance {
             // (either JSON-based hook_config or settl's TOML hooks)
             let has_hooks =
                 agent.and_then(|a| a.hook_config.as_ref()).is_some() || self.tool == "settl";
-            let env_prefix = if has_hooks {
+            let mut env_prefix = if has_hooks {
                 format!("AOE_INSTANCE_ID={} ", self.id)
             } else {
                 String::new()
             };
+
+            // Prepend any per-session extra_env vars (KEY=value format)
+            if let Some(ref envs) = self.extra_env {
+                let extra: String = envs
+                    .iter()
+                    .filter(|e| e.contains('='))
+                    .map(|e| format!("{} ", e))
+                    .collect();
+                env_prefix = format!("{}{}", extra, env_prefix);
+            }
 
             if self.command.is_empty() {
                 crate::agents::get_agent(&self.tool).map(|a| {

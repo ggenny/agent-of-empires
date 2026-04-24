@@ -209,46 +209,46 @@ export function AgentStep({ data, onChange, agents, profiles, dockerAvailable, o
             <p className="text-xs text-text-dim mt-1">Used as the git branch name. Leave empty for auto-generated name.</p>
           </div>
 
-          {/* Container config (if sandbox enabled) */}
-          {data.sandboxEnabled && (
-            <>
-              <div>
-                <label className="block text-sm text-text-dim mb-1.5">Container image</label>
+          {/* Environment variables (always available) */}
+          <div>
+            <label className="block text-sm text-text-dim mb-1.5">Environment variables</label>
+            {data.extraEnv.map((env, i) => (
+              <div key={i} className="flex gap-2 mb-1">
                 <input
                   type="text"
-                  value={data.sandboxImage}
-                  onChange={(e) => onChange("sandboxImage", e.target.value)}
-                  placeholder="ghcr.io/njbrake/aoe-sandbox:latest"
-                  className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2.5 text-sm font-mono text-text-primary placeholder:text-text-dim focus:border-brand-600 focus:outline-none"
+                  value={env}
+                  onChange={(e) => {
+                    const updated = [...data.extraEnv];
+                    updated[i] = e.target.value;
+                    onChange("extraEnv", updated);
+                  }}
+                  placeholder="KEY=value"
+                  className="flex-1 bg-surface-900 border border-surface-700 rounded-md px-2 py-1.5 text-sm font-mono text-text-primary placeholder:text-text-dim focus:border-brand-600 focus:outline-none"
                 />
-              </div>
-              <div>
-                <label className="block text-sm text-text-dim mb-1.5">Environment variables</label>
-                {data.extraEnv.map((env, i) => (
-                  <div key={i} className="flex gap-2 mb-1">
-                    <input
-                      type="text"
-                      value={env}
-                      onChange={(e) => {
-                        const updated = [...data.extraEnv];
-                        updated[i] = e.target.value;
-                        onChange("extraEnv", updated);
-                      }}
-                      placeholder="KEY=value"
-                      className="flex-1 bg-surface-900 border border-surface-700 rounded-md px-2 py-1.5 text-sm font-mono text-text-primary placeholder:text-text-dim focus:border-brand-600 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => onChange("extraEnv", data.extraEnv.filter((_, j) => j !== i))}
-                      className="px-2 text-text-dim hover:text-status-error cursor-pointer"
-                    >&times;</button>
-                  </div>
-                ))}
                 <button
-                  onClick={() => onChange("extraEnv", [...data.extraEnv, ""])}
-                  className="text-xs text-text-dim hover:text-text-secondary cursor-pointer"
-                >+ Add variable</button>
+                  onClick={() => onChange("extraEnv", data.extraEnv.filter((_, j) => j !== i))}
+                  className="px-2 text-text-dim hover:text-status-error cursor-pointer"
+                >&times;</button>
               </div>
-            </>
+            ))}
+            <button
+              onClick={() => onChange("extraEnv", [...data.extraEnv, ""])}
+              className="text-xs text-text-dim hover:text-text-secondary cursor-pointer"
+            >+ Add variable</button>
+          </div>
+
+          {/* Container config (if sandbox enabled) */}
+          {data.sandboxEnabled && (
+            <div>
+              <label className="block text-sm text-text-dim mb-1.5">Container image</label>
+              <input
+                type="text"
+                value={data.sandboxImage}
+                onChange={(e) => onChange("sandboxImage", e.target.value)}
+                placeholder="ghcr.io/njbrake/aoe-sandbox:latest"
+                className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2.5 text-sm font-mono text-text-primary placeholder:text-text-dim focus:border-brand-600 focus:outline-none"
+              />
+            </div>
           )}
 
           {/* Custom instruction */}

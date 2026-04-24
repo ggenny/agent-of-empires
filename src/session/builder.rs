@@ -384,6 +384,8 @@ pub fn build_instance(
             },
             custom_instruction: config.sandbox.custom_instruction.clone(),
         });
+    } else if !params.extra_env.is_empty() {
+        instance.extra_env = Some(params.extra_env.clone());
     }
 
     Ok(BuildResult {
