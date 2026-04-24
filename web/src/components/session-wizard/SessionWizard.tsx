@@ -56,6 +56,33 @@ const initialData: WizardData = {
   customInstruction: "", extraArgs: "", commandOverride: "",
 };
 
+const WIZARD_DEFAULTS_KEY = "aoe_wizard_defaults";
+
+interface WizardDefaults {
+  extraEnv?: string[];
+  extraArgs?: string;
+  commandOverride?: string;
+}
+
+function loadWizardDefaults(): WizardDefaults {
+  try {
+    const raw = localStorage.getItem(WIZARD_DEFAULTS_KEY);
+    if (raw) return JSON.parse(raw) as WizardDefaults;
+  } catch { /* ignore */ }
+  return {};
+}
+
+function saveWizardDefaults(data: WizardData) {
+  try {
+    const defaults: WizardDefaults = {
+      extraEnv: data.extraEnv.filter(Boolean).length > 0 ? data.extraEnv.filter(Boolean) : undefined,
+      extraArgs: data.extraArgs || undefined,
+      commandOverride: data.commandOverride || undefined,
+    };
+    localStorage.setItem(WIZARD_DEFAULTS_KEY, JSON.stringify(defaults));
+  } catch { /* ignore */ }
+}
+
 function reducer(state: WizardState, action: Action): WizardState {
   switch (action.type) {
     case "SET_FIELD": {
@@ -127,17 +154,25 @@ interface Props {
 }
 
 export function SessionWizard({ onClose, onCreated, prefill }: Props) {
-  const prefillData: WizardData = prefill
-    ? {
-        ...initialData,
-        path: prefill.path || "",
-        tool: prefill.tool || "claude",
-        yoloMode: prefill.yoloMode ?? false,
-        sandboxEnabled: prefill.sandboxEnabled ?? false,
-        profile: prefill.profile || "",
-        group: prefill.group || "",
-      }
-    : initialData;
+  const storedDefaults = useMemo(() => loadWizardDefaults(), []);
+
+  const prefillData: WizardData = {
+    ...initialData,
+    extraEnv: storedDefaults.extraEnv ?? [],
+    extraArgs: storedDefaults.extraArgs ?? "",
+    commandOverride: storedDefaults.commandOverride ?? "",
+    advancedEnabled: !!(storedDefaults.extraEnv?.length || storedDefaults.extraArgs || storedDefaults.commandOverride),
+    ...(prefill
+      ? {
+          path: prefill.path || "",
+          tool: prefill.tool || "claude",
+          yoloMode: prefill.yoloMode ?? false,
+          sandboxEnabled: prefill.sandboxEnabled ?? false,
+          profile: prefill.profile || "",
+          group: prefill.group || "",
+        }
+      : {}),
+  };
 
   const [state, dispatch] = useReducer(reducer, {
     currentStep: prefill?.skipToReview ? 2 : (prefill?.path ? 1 : 0),
@@ -196,7 +231,7 @@ export function SessionWizard({ onClose, onCreated, prefill }: Props) {
       profile: d.profile || undefined,
     };
     const result = await createSession(body);
-    if (result.ok) { dispatch({ type: "SUBMIT_SUCCESS" }); onCreated(result.session); }
+    if (result.ok) { saveWizardDefaults(d); dispatch({ type: "SUBMIT_SUCCESS" }); onCreated(result.session); }
     else dispatch({ type: "SUBMIT_ERROR", error: result.error || "Unknown error" });
   };
 
