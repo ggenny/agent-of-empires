@@ -248,8 +248,9 @@ pub fn build_instance(
             // Single worktree mode (existing logic)
             let path = PathBuf::from(&params.path);
             if !GitWorktree::is_git_repo(&path) {
-                bail!("Path is not in a git repository");
-            }
+                // Non-git directory: skip worktree creation and use the path directly.
+                // final_path is already set to the canonicalized params.path above.
+            } else {
             let main_repo_path_raw = GitWorktree::find_main_repo(&path)?;
             let main_repo_path = main_repo_path_raw
                 .canonicalize()
@@ -318,6 +319,7 @@ pub fn build_instance(
                     created_at: Utc::now(),
                 });
             }
+            } // end else is_git_repo
         }
     }
 
